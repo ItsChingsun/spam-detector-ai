@@ -204,10 +204,6 @@ with tab2:
         c2.metric("Spam labels", spam_rows)
         c3.metric("Not Spam labels", not_spam_rows)
 
-        if "user_email" in df.columns:
-            unique_users = df["user_email"].dropna()
-            st.metric("Unique signed-in users", int(unique_users.nunique()))
-
         st.write("### Label distribution")
         chart_data = df["correct_label"].value_counts()
         st.bar_chart(chart_data)
@@ -221,9 +217,19 @@ with tab2:
             st.line_chart(trend_df)
 
         if "user_email" in df.columns:
-            st.write("### Feedback by user")
+            st.write("## User Analytics")
+
+            unique_users = df["user_email"].dropna().nunique()
+            st.metric("Unique users", unique_users)
+
+            st.write("### Activity per user")
             user_counts = df["user_email"].fillna("Anonymous").value_counts()
             st.bar_chart(user_counts)
+
+            st.write("### Most active labelers")
+            active_users_df = user_counts.reset_index()
+            active_users_df.columns = ["user_email", "feedback_count"]
+            st.dataframe(active_users_df, use_container_width=True)
 
             st.write("### Signed-in users")
             users_df = pd.DataFrame(
