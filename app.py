@@ -4,7 +4,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from supabase import create_client, Client
 
-st.set_page_config(page_title="Spam Detector Dashboard", layout="wide")
+st.set_page_config(page_title="Spam Detector Chatbot", layout="wide")
 
 # -------------------------------
 # Secrets / Config
@@ -13,8 +13,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
 ALLOWED_USERS = [
-    "chingvong26@gmail.com",
-    "biltsovander@gmail.com"
+    "chingvong26@gmail.com"
 ]
 
 # -------------------------------
@@ -113,73 +112,102 @@ def require_dashboard_login():
 # -------------------------------
 # UI
 # -------------------------------
-st.title("Spam Detector + Data Dashboard")
-st.caption("Predict messages, collect feedback, and review results.")
+st.title("Spam Detector Chatbot + Dashboard")
+st.caption("Chat with the spam detector, submit feedback, and review results.")
 
-tab1, tab2 = st.tabs(["Predict", "Dashboard"])
+tab1, tab2 = st.tabs(["Chatbot", "Dashboard"])
 
 # -------------------------------
-# TAB 1: Predict
+# TAB 1: Chatbot
 # -------------------------------
 with tab1:
-    st.subheader("Spam Prediction")
+    st.subheader("Chat with the Spam Detector")
 
-    user_message = st.text_input("Enter a message:")
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-    if "last_result" not in st.session_state:
-        st.session_state.last_result = None
+    if "last_prediction" not in st.session_state:
+        st.session_state.last_prediction = None
 
-    if st.button("Predict", type="primary"):
-        if not user_message.strip():
-            st.warning("Please enter a message first.")
-        else:
-            X_msg = vectorizer.transform([user_message])
-            pred = int(model.predict(X_msg)[0])
-            prob = model.predict_proba(X_msg)[0]
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-            st.session_state.last_result = {
-                "message": user_message,
-                "pred": pred,
-                "spam_probability": float(prob[1]),
-            }
+    prompt = st.chat_input("Type a message to analyze...")
 
-    if st.session_state.last_result:
-        result = st.session_state.last_result
-        predicted_text = label_to_text(result["pred"])
+    if prompt:
+        st.session_state.chat_history.append(
+            {"role": "user", "content": prompt}
+        )
 
-        st.write("### Prediction Result")
-        if result["pred"] == 1:
-            st.error(f"Prediction: {predicted_text}")
-        else:
-            st.success(f"Prediction: {predicted_text}")
+        X_msg = vectorizer.transform([prompt])
+        pred = int(model.predict(X_msg)[0])
+        prob = model.predict_proba(X_msg)[0]
+        predicted_text = label_to_text(pred)
+        spam_probability = float(prob[1])
 
-        st.write(f"Spam probability: {result['spam_probability']:.2%}")
-        st.write("### Teach the model")
+        bot_reply = (
+            f"That message looks like **{predicted_text}** to me.\n\n"
+            f"My confidence is **{spam_probability:.2%}**.\n\n"
+            f"Please tell me if I got it right so I can improve."
+        )
 
-        if getattr(st.user, "is_logged_in", False):
-            st.info(f"Signed in as: {get_current_user_email()}")
-        else:
-            st.info("Feedback can still be saved without login, but user email will be blank.")
+        st.session_state.chat_history.append(
+            {"role": "assistant", "content": bot_reply}
+        )
+
+        st.session_state.last_prediction = {
+            "message": prompt,
+            "predicted_label": predicted_text,
+            "spam_probability": spam_probability,
+        }
+
+        st.rerun()
+
+    if st.session_state.last_prediction is not None:
+        st.write("### Give feedback")
+
+        if not getattr(st.user, "is_logged_in", False):
+            st.warning("Please log in with Google to submit feedback with your email.")
+            if st.button("Login with Google"):
+                st.login("google")
+            st.stop()
+
+        st.success(f"Signed in as: {get_current_user_email()}")
 
         col1, col2 = st.columns(2)
 
-        if col1.button("This is Spam"):
+        if col1.button("Yes, this is Spam"):
             save_feedback(
-                message=result["message"],
-                predicted_label=predicted_text,
+                message=st.session_state.last_prediction["message"],
+                predicted_label=st.session_state.last_prediction["predicted_label"],
                 correct_label="Spam",
-                spam_probability=result["spam_probability"],
+                spam_probability=st.session_state.last_prediction["spam_probability"],
             )
-            st.success("Saved online as: Spam")
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "content": "Thanks — I saved your feedback as **Spam**."
+                }
+            )
+            st.session_state.last_prediction = None
+            st.rerun()
 
-        if col2.button("This is Not Spam"):
+        if col2.button("No, this is Not Spam"):
             save_feedback(
-                message=result["message"],
-                predicted_label=predicted_text,
+                message=st.session_state.last_prediction["message"],
+                predicted_label=st.session_state.last_prediction["predicted_label"],
                 correct_label="Not Spam",
-                spam_probability=result["spam_probability"],
+                spam_probability=st.session_state.last_prediction["spam_probability"],
             )
-            st.success("Saved online as: Not Spam")
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "content": "Thanks — I saved your feedback as **Not Spam**."
+                }
+            )
+            st.session_state.last_prediction = None
+            st.rerun()
 
 # -------------------------------
 # TAB 2: Dashboard (Protected)
