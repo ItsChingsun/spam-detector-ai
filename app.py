@@ -88,7 +88,7 @@ def load_feedback():
 
 
 def require_dashboard_login():
-    if not st.user.is_logged_in:
+    if not hasattr(st, "user") or not st.user.is_logged_in:
         st.warning("Please log in with Google to view the dashboard.")
         st.login("google")
         st.stop()
@@ -96,7 +96,7 @@ def require_dashboard_login():
     user_email = getattr(st.user, "email", None)
 
     if user_email not in ALLOWED_USERS:
-        st.error("Access denied. Your account is not authorized for the dashboard.")
+        st.error("Access denied.")
         st.stop()
 
     st.success(f"Logged in as: {user_email}")
