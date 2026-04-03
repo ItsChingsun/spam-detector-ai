@@ -88,11 +88,18 @@ def load_feedback():
 
 
 def require_dashboard_login():
-    if not hasattr(st, "user") or not st.user.is_logged_in:
+    # Step 1: check if st.user exists
+    if not hasattr(st, "user"):
+        st.error("Authentication not supported in this Streamlit version.")
+        st.stop()
+
+    # Step 2: check login safely
+    if not getattr(st.user, "is_logged_in", False):
         st.warning("Please log in with Google to view the dashboard.")
         st.login("google")
         st.stop()
 
+    # Step 3: check email
     user_email = getattr(st.user, "email", None)
 
     if user_email not in ALLOWED_USERS:
