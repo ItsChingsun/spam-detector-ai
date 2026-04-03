@@ -3,3 +3,4 @@ scikit-learn
 joblib
 supabase
 pandas
+streamlit>=1.36.0
