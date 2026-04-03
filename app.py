@@ -17,7 +17,7 @@ SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 # GOOGLE_CLIENT_SECRET = "your-client-secret"
 
 ALLOWED_USERS = [
-    "your_email@gmail.com"
+    "chingvong26@gmail.com"
 ]
 
 # -------------------------------
