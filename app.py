@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
@@ -129,6 +130,7 @@ with tab1:
     if "last_prediction" not in st.session_state:
         st.session_state.last_prediction = None
 
+    # Show previous chat messages
     for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
@@ -136,21 +138,35 @@ with tab1:
     prompt = st.chat_input("Type a message to analyze...")
 
     if prompt:
+        # Show user message immediately
         st.session_state.chat_history.append(
             {"role": "user", "content": prompt}
         )
 
-        X_msg = vectorizer.transform([prompt])
-        pred = int(model.predict(X_msg)[0])
-        prob = model.predict_proba(X_msg)[0]
-        predicted_text = label_to_text(pred)
-        spam_probability = float(prob[1])
+        # Rerender current history first
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-        bot_reply = (
-            f"That message looks like **{predicted_text}** to me.\n\n"
-            f"My confidence is **{spam_probability:.2%}**.\n\n"
-            f"Please tell me if I got it right so I can improve."
-        )
+        # Show typing / thinking effect
+        with st.chat_message("assistant"):
+            thinking_box = st.empty()
+            thinking_box.markdown("Typing...")
+
+            time.sleep(1.0)
+
+            X_msg = vectorizer.transform([prompt])
+            pred = int(model.predict(X_msg)[0])
+            prob = model.predict_proba(X_msg)[0]
+            predicted_text = label_to_text(pred)
+            spam_probability = float(prob[1])
+
+            bot_reply = (
+                f"That message looks like **{predicted_text}** to me.\n\n"
+                f"My confidence is **{spam_probability:.2%}**.\n\n"
+                f"Please tell me if I got it right so I can improve."
+            )
+
+            thinking_box.markdown(bot_reply)
 
         st.session_state.chat_history.append(
             {"role": "assistant", "content": bot_reply}
@@ -161,8 +177,6 @@ with tab1:
             "predicted_label": predicted_text,
             "spam_probability": spam_probability,
         }
-
-        st.rerun()
 
     if st.session_state.last_prediction is not None:
         st.write("### Give feedback")
@@ -178,12 +192,19 @@ with tab1:
         col1, col2 = st.columns(2)
 
         if col1.button("Yes, this is Spam"):
+            with st.chat_message("assistant"):
+                save_box = st.empty()
+                save_box.markdown("Saving feedback...")
+                time.sleep(0.8)
+                save_box.markdown("Thanks — I saved your feedback as **Spam**.")
+
             save_feedback(
                 message=st.session_state.last_prediction["message"],
                 predicted_label=st.session_state.last_prediction["predicted_label"],
                 correct_label="Spam",
                 spam_probability=st.session_state.last_prediction["spam_probability"],
             )
+
             st.session_state.chat_history.append(
                 {
                     "role": "assistant",
@@ -194,12 +215,19 @@ with tab1:
             st.rerun()
 
         if col2.button("No, this is Not Spam"):
+            with st.chat_message("assistant"):
+                save_box = st.empty()
+                save_box.markdown("Saving feedback...")
+                time.sleep(0.8)
+                save_box.markdown("Thanks — I saved your feedback as **Not Spam**.")
+
             save_feedback(
                 message=st.session_state.last_prediction["message"],
                 predicted_label=st.session_state.last_prediction["predicted_label"],
                 correct_label="Not Spam",
                 spam_probability=st.session_state.last_prediction["spam_probability"],
             )
+
             st.session_state.chat_history.append(
                 {
                     "role": "assistant",
